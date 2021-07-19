@@ -1,6 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const morgan = require('morgan'); //bring in middleware
+const errorHandler = require('./middleware/error');
 const colors = require('colors');
 const connectDB = require('./config/db');
 
@@ -27,6 +28,9 @@ if(process.env.NODE_ENV === 'development') {
 
 //mount routers
 app.use('/api/v1/bootcamps', bootcamps)
+
+//Mount Error handler
+app.use(errorHandler);
 
 //finds the port from dotenv OR uses port 5000
 const PORT = process.env.PORT || 5000;
