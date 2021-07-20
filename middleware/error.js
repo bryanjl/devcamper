@@ -2,15 +2,10 @@ const ErrorResponse = require('../utils/ErrorResponse');
 
 
 //custom error handler
-
 const errorHandler = (err, req, res, next) => {
     let error = { ...err };
 
     error.message = err.message;
-
-    //console print for dev
-    // let arr = err.errors;
-    // console.log(Array.isArray(arr));
     
     //Mongoose Can't find item with ID
     if(err.name === 'CastError') {
@@ -30,7 +25,6 @@ const errorHandler = (err, req, res, next) => {
         let message = Object.values(err.errors).map(val => val.message);
         error = new ErrorResponse(message, 400);
     }
-
 
     res 
         .status(error.statusCode || 500)
