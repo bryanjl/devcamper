@@ -9,25 +9,20 @@ const asyncHandler = require('../middleware/async');
 //@route    GET /api/v1/bootcamps/:bootcampId/courses
 //@access   Public
 exports.getCourses = asyncHandler(async (req, res, next) => {
-    //check to see if bootcamp id exists
-    let query;
+
 
     if(req.params.bootcampId) {
-        query = Course.find({ bootcamp: req.params.bootcampId });
-    } else {
-        query = Course.find().populate({
-            path: 'bootcamp',
-            select: 'name description'
+        const courses = await Course.find( { bootcamp:req.params.id });
+
+        return res.status(200).json({
+            success: true,
+            count: courses.length,
+            data: courses
         });
+
+    } else {
+        res.status(200).json(res.advancedResults);
     }
-
-    const courses = await query;
-
-    res.status(200).json({
-        success: true,
-        count: courses.length,
-        data: courses
-    });
 });
 
 //@desc     Get a single course
@@ -72,5 +67,49 @@ exports.createCourse = asyncHandler(async (req, res, next) => {
     res.status(200).json({
         success: true,
         data: course
+    });
+});
+
+//@desc     Update a course
+//@route    PUT /api/v1/courses/:id
+//@access   Private - admin/publisher
+exports.updateCourse = asyncHandler(async (req, res, next) => {
+    let course = await Course.findById(req.params.id);
+
+    if(!course){
+        return next(
+            new ErrorResponse(`Course with id of ${req.params.id} not found`, 404)
+        );
+    }
+
+    course = await Course.findByIdAndUpdate(req.params.id, req.body, {
+        new: true,
+        runValidators: true
+    });
+
+    res.status(200).json({
+        success: true,
+        data: course
+    });
+});
+
+
+//@desc     Delete a course
+//@route    DELETE /api/v1/courses/:id
+//@access   Private - admin/publisher
+exports.deleteCourse = asyncHandler(async (req, res, next) => {
+    let course = await Course.findById(req.params.id);
+
+    if(!course) {
+        return next(
+            new ErrorResponse(`Course with id of ${req.params.id} cannot be found`, 404)
+        );
+    }
+
+    await course.remove();
+
+    res.status(200).json({
+        success: true,
+        data: {}
     });
 });

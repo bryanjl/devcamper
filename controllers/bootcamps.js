@@ -1,3 +1,4 @@
+const path = require('path');
 const Bootcamp = require('../models/Bootcamp');
 const ErrorResponse = require('../utils/ErrorResponse');
 const geocoder = require('../utils/geocoder');
@@ -8,74 +9,7 @@ const asyncHandler = require('../middleware/async');
 //@route    GET /api/v1/bootcamps
 //@access   Public
 exports.getBootcamps = asyncHandler(async (req, res, next) => {
-    let query;
-
-    //copy req.query object
-    let reqQuery = { ...req.query };
-
-    //list of fields not include in query
-    const removeFields = ['select', 'sort', 'limit', 'page'];
-
-    //remove fields from query
-    removeFields.forEach(param => delete reqQuery[param]);
-
-    //change query params to string
-    let queryStr = JSON.stringify(reqQuery);
-
-    //change string to match a mongoDB search param
-    queryStr = queryStr.replace(/\b(gt|gte|lt|lte|in)\b/g, match => `$${match}`);
-
-    //change string back to object
-    //This object is used to send to DB for search
-    query = Bootcamp.find(JSON.parse(queryStr)).populate('courses');
-
-    //SELECT FILTER -> if therre is a select filtering then get proper format to search DB
-    if(req.query.select){
-        let fields = req.query.select.split(',').join(' ');
-        query = query.select(fields);
-        console.log(query);
-    }
-
-    //SORT BY -> sort properties of query object
-    if(req.query.sort){
-        let sortBy = req.query.sort.split(',').join(' ');
-        query.sort(sortBy);
-    } else {
-        query.sort('createdAt');
-    }
-
-    // PAGE // LIMIT
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 25;
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit;
-    const total = await Bootcamp.countDocuments();
-
-    query = query
-                .skip(startIndex)
-                .limit(limit);
-    
-    //Execute search and get resources
-    const bootcamps = await query;
-
-    //PAGINATION
-    let pagination = {};
-    if(endIndex < total){
-        pagination.next = {
-            page: page + 1,
-            limit: limit
-        }
-    }
-    if(startIndex > 0) {
-        pagination.prev = {
-            page: page - 1,
-            limit: limit
-        }
-    }
-
-    res
-        .status(200)
-        .json({ success: true, count: bootcamps.length, pagination, data: bootcamps });  
+   res.status(200).json(res.advancedResults);
 });
 
 //@desc     Get a bootcamp with id
@@ -179,4 +113,63 @@ exports.getBootcampsInRadius = asyncHandler(async (req, res, next) => {
         count: bootcamps.length,
         data: bootcamps
     });
+});
+
+//@desc     Upload a photo
+//@route    GET /api/v1/bootcamps/:id/photo
+//@access   Private owner/admin
+exports.bootcampPhotoUpload = asyncHandler(async (req, res, next) => {
+    const bootcamp = await Bootcamp.findById(req.params.id);
+
+    //check to see bootcamp exists
+    if(!bootcamp){
+        next(
+            new ErrorResponse(`Bootcamp with id of ${req.params.id} not found`, 404)
+        );
+    }
+
+    //check if there is a file
+    if(!req.files) {
+        next(
+            new ErrorResponse(`Please upload a file`, 400)
+        );
+    }
+
+    let file = req.files.file;
+
+    //check to see if file is image
+    if(!file.mimetype.startsWith('image')){
+        next(
+            new ErrorResponse(`Please upload an image file`, 400)
+        );
+    }
+
+    //check the size of uploaded image
+    if(file.size > process.env.MAX_FILE_UPLOAD){
+        return next(
+            new ErrorResponse(`Please choose image less than ${process.env.MAX_FILE_UPLOAD} bytes`, 400)
+        );
+    }
+
+    //create unique file name
+    file.name = `photo_${bootcamp.id}${path.parse(file.name).ext}`;
+
+    //move the file
+    file.mv(`${process.env.FILE_UPLOAD_PATH}/${file.name}`, async err => {
+        if(err){
+            console.log(err);
+            return next(
+                new ErrorResponse(`Problem with file upload`, 500)
+            );
+        }
+
+        await Bootcamp.findByIdAndUpdate(req.params.id, { photo: file.name });
+
+        res.status(200).json({
+            success: true,
+            data: file.name
+        });
+    });
+
+    
 });
