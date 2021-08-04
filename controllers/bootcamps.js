@@ -27,7 +27,7 @@ exports.getBootcamps = asyncHandler(async (req, res, next) => {
 
     //change string back to object
     //This object is used to send to DB for search
-    query = Bootcamp.find(JSON.parse(queryStr));
+    query = Bootcamp.find(JSON.parse(queryStr)).populate('courses');
 
     //SELECT FILTER -> if therre is a select filtering then get proper format to search DB
     if(req.query.select){
@@ -41,7 +41,7 @@ exports.getBootcamps = asyncHandler(async (req, res, next) => {
         let sortBy = req.query.sort.split(',').join(' ');
         query.sort(sortBy);
     } else {
-        query.sort(createdAt);
+        query.sort('createdAt');
     }
 
     // PAGE // LIMIT
@@ -135,11 +135,14 @@ exports.updateBootcamp = asyncHandler(async (req, res, next) => {
 //@access   Private - admin/publisher of bootcamp
 exports.deleteBootcamp = asyncHandler(async (req, res, next) => {
 
-    const bootcamp = await Bootcamp.findByIdAndDelete(req.params.id);
+    const bootcamp = await Bootcamp.findById(req.params.id);
 
     if(!bootcamp) {
         return next(new ErrorResponse(`Bootcamp with ID of ${req.params.id} not found`, 404));
     }
+
+    //use .remove so that middleware in schema is triggered
+    bootcamp.remove();
 
     res
         .status(200)
