@@ -48,40 +48,63 @@ exports.login = asyncHandler(async (req, res, next) => {
     sendTokenResponse(user, 200, res);
  });
 
- //get token from model, create cookie and send response
- const sendTokenResponse = (user, statusCode, res) => {
-     //create token
-     const token = user.getSignedJwtToken();
+//@desc     Get current logged in user
+//@route    GET /api/v1/auth/me
+//@access   Private
+exports.getMe = asyncHandler(async (req, res, next) => {
+    const user = await User.findById(req.user.id);
 
-     const options = {
-        expires: new Date(Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000), //30days,
-        httpOnly: true
-     };
-
-     //if in production mode make secure
-     if(process.env.NODE_ENV === 'production') {
-         options.secure = true;
-     }
-
-     res
-        .status(statusCode)
-        .cookie('token', token, options)
+    res
+        .status(200)
         .json({
             success: true,
-            token
+            data: user
         });
- }
+});  
 
-    //@desc     Get current logged in user
-    //@route    GET /api/v1/auth/me
-    //@access   Private
-    exports.getMe = asyncHandler(async (req, res, next) => {
-        const user = await User.findById(req.user.id);
+//@desc     Forgot password
+//@route    POST /api/v1/auth/forgotpassword
+//@access   Public
+exports.forgotPassword = asyncHandler(async (req, res, next) => {
+    const user = await User.findOne({ email: req.body.email});
 
-        res
-            .status(200)
-            .json({
-                success: true,
-                data: user
-            });
-    });  
+    if(!user) {
+        return next(new ErrorResponse(`There is no user with that email`, 404));
+    }
+
+    //get reset token
+    const resetToken = user.getResetPasswordToken();
+
+    await user.save({ validateBeforeSave: false });
+
+    res
+        .status(200)
+        .json({
+            success: true,
+            data: user
+        });
+});  
+
+    //get token from model, create cookie and send response
+const sendTokenResponse = (user, statusCode, res) => {
+    //create token
+    const token = user.getSignedJwtToken();
+
+    const options = {
+    expires: new Date(Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000), //30days,
+    httpOnly: true
+    };
+
+    //if in production mode make secure
+    if(process.env.NODE_ENV === 'production') {
+        options.secure = true;
+    }
+
+    res
+    .status(statusCode)
+    .cookie('token', token, options)
+    .json({
+        success: true,
+        token
+    });
+}
