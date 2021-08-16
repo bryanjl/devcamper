@@ -9,7 +9,7 @@ const errorHandler = (err, req, res, next) => {
     
     //Mongoose Can't find item with ID
     if(err.name === 'CastError') {
-        let message = `Bootcamp with ID of ${err.value} not found`;
+        let message = `Resource not found`;
         error = new ErrorResponse(message, 404);
     }
 

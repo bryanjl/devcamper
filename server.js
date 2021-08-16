@@ -2,6 +2,12 @@ const path = require('path');
 const express = require('express');
 const dotenv = require('dotenv');
 const morgan = require('morgan'); //bring in middleware
+const expressSanitize = require('express-mongo-sanitize');
+const helmet = require('helmet');
+const xss = require('xss-clean');
+const rateLimit = require('express-rate-limit');
+const hpp = require('hpp');
+const cors = require('cors');
 const fileupload = require('express-fileupload');
 const cookieParser = require('cookie-parser');
 const errorHandler = require('./middleware/error');
@@ -16,6 +22,7 @@ const bootcamps = require('./routes/bootcamps');
 const courses = require('./routes/courses');
 const auth = require('./routes/auth');
 const users = require('./routes/users');
+const reviews = require('./routes/reviews');
 
 //connect to DB
 connectDB();
@@ -38,6 +45,28 @@ if(process.env.NODE_ENV === 'development') {
 //file uploading
 app.use(fileupload());
 
+//sanitize for SQL injections
+app.use(expressSanitize());
+
+//set security headers
+app.use(helmet());
+
+//prevent xss attacks
+app.use(xss());
+
+//rate limiting
+const limiter = rateLimit({
+    windowOf: 10 * 60 * 1000, //10 minutes
+    max: 100
+});
+app.use(limiter);
+
+//prevent http param pollution
+app.use(hpp());
+
+//enable cors
+app.use(cors());
+
 //set static folder
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -46,6 +75,7 @@ app.use('/api/v1/bootcamps', bootcamps);
 app.use('/api/v1/courses', courses);
 app.use('/api/v1/auth', auth);
 app.use('/api/v1/users', users);
+app.use('/api/v1/reviews', reviews);
 
 //Mount Error handler
 app.use(errorHandler);
